@@ -32,8 +32,8 @@ func main() {
 	if err := store.SeedDB(app.DB, app.Logger); err != nil {
 		app.Logger.Printf("Warning: seed failed: %v", err)
 	}
-	// Simulate devices sending live data every 10 minutes - 10*time.Minute
-	go store.SimulateReadings(ctx, app.DB, 10*time.Second, app.Logger)
+	// Simulate devices sending live data every 2 minutes - 2*time.Minute
+	go store.SimulateReadings(ctx, app.DB, 2*time.Minute, app.Logger)
 
 	err = godotenv.Load()
 	if err != nil {
