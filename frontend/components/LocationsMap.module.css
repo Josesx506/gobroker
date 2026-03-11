@@ -1,0 +1,39 @@
+.container {
+  height: calc(100vh - 56px);
+  width: 100%;
+}
+
+.map {
+  height: 100%;
+  width: 100%;
+}
+
+/* Tooltip content (inside Leaflet's container, styled via globals for the
+   outer shell; these classes control the React children only) */
+.tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 90px;
+}
+
+.tooltipName {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
+  letter-spacing: 0.4px;
+  color: #888888;
+}
+
+.tooltipTemp {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #00c805;
+  line-height: 1.1;
+}
+
+.tooltipWaiting {
+  font-size: 13px;
+  color: #555555;
+}

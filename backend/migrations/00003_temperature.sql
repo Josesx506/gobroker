@@ -2,9 +2,9 @@
 -- +goose StatementBegin
 -- Create the temperature readings table
 CREATE TABLE IF NOT EXISTS public.temperature_readings (
-    id SERIAL PRIMARY KEY,
-    location_id TEXT NOT NULL,
-    device_id TEXT NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    location_id TEXT NOT NULL REFERENCES public.device_metadata (location_id) ON DELETE CASCADE,
+    device_id TEXT NOT NULL REFERENCES public.device_metadata (device_id) ON DELETE CASCADE,
     value NUMERIC(5, 2) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

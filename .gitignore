@@ -29,6 +29,8 @@ go.work.sum
 
 # Other files
 backend/tmp
+frontend/node_modules
+frontend/.next
 
 # Editor/IDE
 # .idea/

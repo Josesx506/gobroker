@@ -6,3 +6,8 @@ Password is `postgres`. <br>
 
 The container comes with `go version go1.25.5 linux/arm64` installed by default, and 
 all external packages in the `go.mod` file are preinstalled by default. 
+
+```sql
+\c broker; -- switch to active db on dev
+\d temperature_readings; -- view all triggers and indexes
+```

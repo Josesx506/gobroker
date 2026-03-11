@@ -15,7 +15,11 @@ type Application struct {
 }
 
 func NewApplication() (*Application, error) {
-	pgDB, err := store.Open()
+	// Logger
+	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+
+	// Open db connection
+	pgDB, err := store.Open(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -24,10 +28,6 @@ func NewApplication() (*Application, error) {
 	if err != nil {
 		panic(err)
 	}
-
-	// Logger
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-
 	app := &Application{
 		Logger: logger,
 		DB:     pgDB,

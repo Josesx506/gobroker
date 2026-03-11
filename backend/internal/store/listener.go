@@ -68,7 +68,8 @@ func runListener(ctx context.Context, dbURL string, brokerChn *broker.Broker) er
 		return fmt.Errorf("listen error: %w", err)
 	}
 
-	log.Println("Successfully connected. Listening for Postgres notifications...")
+	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	logger.Println("[Store] DB successfully connected. Listening for Postgres notifications...")
 
 	for {
 		// 3. Block and wait for data

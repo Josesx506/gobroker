@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-func Open() (*sql.DB, error) {
+func Open(logger *log.Logger) (*sql.DB, error) {
 	err := godotenv.Load()
 	if err != nil {
 		return nil, fmt.Errorf("Error loading .env file")
@@ -36,7 +37,7 @@ func Open() (*sql.DB, error) {
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxIdleTime(time.Second * 60)
 
-	fmt.Printf("Connected to database....\n")
+	logger.Printf("[Store] Connected to database....\n")
 	return db, nil
 }
 

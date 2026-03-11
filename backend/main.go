@@ -27,6 +27,14 @@ func main() {
 		panic(err)
 	}
 
+	/** DEV dependencies - unrequired when separate service writes to the DB */
+	// Seed the db if data does not exist
+	if err := store.SeedDB(app.DB, app.Logger); err != nil {
+		app.Logger.Printf("Warning: seed failed: %v", err)
+	}
+	// Simulate devices sending live data every 10 minutes - 10*time.Minute
+	go store.SimulateReadings(ctx, app.DB, 10*time.Second, app.Logger)
+
 	err = godotenv.Load()
 	if err != nil {
 		app.Logger.Printf("Error loading .env file")
@@ -34,7 +42,7 @@ func main() {
 	port := os.Getenv("PORT")
 	defer app.DB.Close()
 
-	router := api.SetupRoutes(app)
+	router := api.SetupRoutes(app, brkr)
 	server := &http.Server{
 		Addr:         ":" + port,
 		Handler:      router,
@@ -42,7 +50,7 @@ func main() {
 		ReadTimeout:  10 * time.Minute,
 		WriteTimeout: 30 * time.Minute,
 	}
-	app.Logger.Printf("We are running our api on port %s\n", port)
+	app.Logger.Printf("[Main] We are running our api on port %s\n", port)
 
 	err = server.ListenAndServe()
 	if err != nil {
