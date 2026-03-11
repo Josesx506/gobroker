@@ -17,9 +17,10 @@ func PostgresListener(ctx context.Context, broker *broker.Broker) {
 	/**
 	Postgres event listener with exponential backoff
 	*/
-	err := godotenv.Load()
-	if err != nil {
-		log.Printf("Error loading .env file")
+	if os.Getenv("DATABASE_URL") == "" {
+		if err := godotenv.Load(); err != nil {
+			log.Printf("DATABASE_URL not set and no .env file found")
+		}
 	}
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {

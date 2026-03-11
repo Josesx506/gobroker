@@ -14,9 +14,12 @@ import (
 )
 
 func Open(logger *log.Logger) (*sql.DB, error) {
-	err := godotenv.Load()
-	if err != nil {
-		return nil, fmt.Errorf("Error loading .env file")
+	// Load .env for local development. In production (Railway, etc.) env vars
+	// are injected directly, so skip loading the file if they are already set.
+	if os.Getenv("DATABASE_URL") == "" {
+		if err := godotenv.Load(); err != nil {
+			return nil, fmt.Errorf("DATABASE_URL not set and no .env file found")
+		}
 	}
 
 	dbUrl := os.Getenv("DATABASE_URL")
