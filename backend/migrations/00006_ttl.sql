@@ -20,7 +20,7 @@ $$;
 -- +goose StatementBegin
 -- FOR EACH STATEMENT fires once per INSERT call regardless of row count,
 -- so bulk inserts (e.g. seeding) only trigger one cleanup pass.
-CREATE TRIGGER temperature_readings_ttl
+CREATE OR REPLACE TRIGGER temperature_readings_ttl
     AFTER INSERT ON public.temperature_readings
     FOR EACH STATEMENT
     EXECUTE FUNCTION rtmfuncs.ttl_temperature_readings();
