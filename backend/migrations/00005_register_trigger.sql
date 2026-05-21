@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 -- Attach the trigger
-CREATE TRIGGER IF NOT EXISTS temp_notify_insert
+CREATE OR REPLACE TRIGGER temp_notify_insert
 AFTER INSERT ON public.temperature_readings
 FOR EACH ROW 
 EXECUTE FUNCTION rtmfuncs.notify_temp_insert();
