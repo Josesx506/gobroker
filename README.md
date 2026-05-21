@@ -38,6 +38,7 @@ flowchart TD
 ### Backend
 On dev, start the go server with live reload enabled in a devcontainer with
 - `cd backend & air` from the root directory
+    - Use `air -- server --port 8080` to specify a custom port from the backend directory.
 
 Example insert statement:
 ```sql

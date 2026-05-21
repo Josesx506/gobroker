@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/Josesx506/gobroker/backend/internal/api/docs"
 	"github.com/Josesx506/gobroker/backend/internal/api/locations"
 	"github.com/Josesx506/gobroker/backend/internal/api/streams"
 	"github.com/Josesx506/gobroker/backend/internal/api/temperature"
@@ -34,6 +35,8 @@ func SetupRoutes(app *app.Application, broker *broker.Broker) *chi.Mux {
 
 	router.Get("/", HandlerRoot)
 	router.Get("/health", HandlerHealthChecker)
+	router.Get("/docs", docs.HandleDocs)
+	router.Get("/openapi.yaml", docs.HandleSpec)
 
 	// Device metadata
 	router.Mount("/locations", locations.LocationsRouter(app))

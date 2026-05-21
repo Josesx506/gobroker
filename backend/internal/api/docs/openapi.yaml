@@ -1,0 +1,322 @@
+openapi: "3.1.0"
+
+info:
+  title: GoBroker API
+  version: "1.0.0"
+  description: |
+    Real-time temperature event streaming API backed by PostgreSQL `pg_notify`.
+
+    **Data flow:**
+    ```
+    INSERT → PostgreSQL TRIGGER → pg_notify('temp_events') → Listener → Broker → SSE clients
+    ```
+
+    All endpoints are unauthenticated. CORS is configured server-side via the `CLIENT_URL`
+    environment variable.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Meta
+    description: Health and root endpoints
+  - name: Locations
+    description: Device location metadata
+  - name: Temperature
+    description: Historical temperature readings
+  - name: Streams
+    description: Real-time Server-Sent Events (SSE) temperature stream
+
+paths:
+  /:
+    get:
+      tags: [Meta]
+      summary: Root
+      description: Returns a welcome message confirming the server is running.
+      operationId: getRoot
+      responses:
+        "200":
+          description: Server is running
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Welcome to GoBroker"
+
+  /health:
+    get:
+      tags: [Meta]
+      summary: Health check
+      description: Lightweight liveness probe. Returns a plain-text OK.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "OK"
+
+  /locations/:
+    get:
+      tags: [Locations]
+      summary: List device locations
+      description: |
+        Returns all registered device locations from the `device_metadata` table.
+
+        Each record maps a `location_id` to a physical `device_id` with GPS coordinates.
+      operationId: getLocations
+      responses:
+        "200":
+          description: Array of device locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeviceLocation"
+              example:
+                - id: 1
+                  location_id: "warehouse-a"
+                  device_id: "sensor-001"
+                  longitude: -73.935242
+                  latitude: 40.730610
+                - id: 2
+                  location_id: "warehouse-b"
+                  device_id: "sensor-002"
+                  longitude: -73.982559
+                  latitude: 40.748440
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /temperature/{location_id}:
+    get:
+      tags: [Temperature]
+      summary: Historical temperature readings
+      description: |
+        Returns time-bucketed average temperature readings for a given location.
+
+        Aggregation granularity depends on the `lookback` window:
+
+        | `lookback` | Range       | Bucket size |
+        |-----------|-------------|-------------|
+        | `24h`     | Last 24 h   | Per minute  |
+        | `1wk`     | Last 7 days | Per hour    |
+        | `1mo`     | Last 30 days| Per day     |
+        | `3mo`     | Last 90 days| Per day     |
+
+        Data older than 90 days is automatically deleted by a TTL database trigger.
+      operationId: getTemperatureByLocation
+      parameters:
+        - name: location_id
+          in: path
+          required: true
+          description: Unique identifier for the device location (maps to `device_metadata.location_id`).
+          schema:
+            type: string
+            example: "warehouse-a"
+        - name: lookback
+          in: query
+          required: false
+          description: Time window for the query. Defaults to `24h`.
+          schema:
+            type: string
+            enum: ["24h", "1wk", "1mo", "3mo"]
+            default: "24h"
+            example: "1wk"
+      responses:
+        "200":
+          description: Aggregated temperature chart data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChartResponse"
+              example:
+                label: "warehouse-a"
+                data:
+                  - time: "2025-05-20T00:00:00Z"
+                    val: 22.35
+                  - time: "2025-05-20T00:01:00Z"
+                    val: 22.41
+        "400":
+          description: Missing or invalid `location_id`
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Invalid Location"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /streams/:
+    get:
+      tags: [Streams]
+      summary: Real-time temperature stream (SSE)
+      description: |
+        Opens a persistent Server-Sent Events connection that delivers live temperature
+        readings as they are inserted into the database.
+
+        The server filters events by `location_id` so each client only receives readings
+        for the location it subscribed to.
+
+        **Connection behaviour:**
+        - The response never closes on the server side; it streams indefinitely.
+        - Each event is newline-delimited in the standard SSE format: `data: {JSON}\n\n`.
+        - The connection closes automatically when the client disconnects.
+
+        **Example JavaScript client:**
+        ```js
+        const es = new EventSource(
+          "http://localhost:8080/streams/?location_id=warehouse-a"
+        );
+        es.onmessage = (e) => console.log(JSON.parse(e.data));
+        ```
+
+        **Example curl (Ctrl-C to stop):**
+        ```bash
+        curl -N "http://localhost:8080/streams/?location_id=warehouse-a"
+        ```
+      operationId: streamTemperatureByLocation
+      parameters:
+        - name: location_id
+          in: query
+          required: true
+          description: Location to subscribe to. Must match a value in `device_metadata.location_id`.
+          schema:
+            type: string
+            example: "warehouse-a"
+      responses:
+        "200":
+          description: |
+            SSE stream. Each `data:` line is a JSON-encoded temperature event.
+          headers:
+            Content-Type:
+              description: Always `text/event-stream`
+              schema:
+                type: string
+                example: "text/event-stream"
+            Cache-Control:
+              schema:
+                type: string
+                example: "no-cache"
+            Connection:
+              schema:
+                type: string
+                example: "keep-alive"
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Newline-delimited SSE frames. Each frame body is a JSON
+                  `StreamMessage` object.
+              example: |
+                data: {"val":22.41,"time":"2025-05-20T14:32:01Z","device":"sensor-001","location_id":"warehouse-a"}
+
+                data: {"val":22.38,"time":"2025-05-20T14:33:01Z","device":"sensor-001","location_id":"warehouse-a"}
+
+        "400":
+          description: Missing `location_id` query parameter
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "location_id is required"
+
+components:
+  schemas:
+    DeviceLocation:
+      type: object
+      description: A registered device and its physical location.
+      required: [id, location_id, device_id, longitude, latitude]
+      properties:
+        id:
+          type: integer
+          description: Auto-incremented primary key.
+          example: 1
+        location_id:
+          type: string
+          description: Human-readable unique location identifier.
+          example: "warehouse-a"
+        device_id:
+          type: string
+          description: Unique sensor/device identifier.
+          example: "sensor-001"
+        longitude:
+          type: number
+          format: double
+          description: WGS-84 longitude (up to 6 decimal places).
+          example: -73.935242
+        latitude:
+          type: number
+          format: double
+          description: WGS-84 latitude (up to 6 decimal places).
+          example: 40.730610
+
+    ChartDataPoint:
+      type: object
+      description: A single time-bucketed average temperature reading.
+      required: [time, val]
+      properties:
+        time:
+          type: string
+          format: date-time
+          description: Start of the time bucket (UTC, RFC 3339).
+          example: "2025-05-20T00:00:00Z"
+        val:
+          type: number
+          format: double
+          description: Average temperature value (°C) rounded to 2 decimal places.
+          example: 22.35
+
+    ChartResponse:
+      type: object
+      description: Aggregated temperature history for a single location.
+      required: [label, data]
+      properties:
+        label:
+          type: string
+          description: The `location_id` this data belongs to.
+          example: "warehouse-a"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChartDataPoint"
+          description: Ordered list of bucketed averages, ascending by time.
+
+    StreamMessage:
+      type: object
+      description: |
+        A single real-time temperature event delivered over the SSE stream.
+        Emitted by the `rtmfuncs.notify_temp_insert()` PostgreSQL trigger.
+      required: [val, time, device, location_id]
+      properties:
+        val:
+          type: number
+          format: double
+          description: Raw temperature reading value (°C).
+          example: 22.41
+        time:
+          type: string
+          format: date-time
+          description: Timestamp of the database insert (UTC, RFC 3339).
+          example: "2025-05-20T14:32:01Z"
+        device:
+          type: string
+          description: The `device_id` that produced the reading.
+          example: "sensor-001"
+        location_id:
+          type: string
+          description: The location this reading belongs to.
+          example: "warehouse-a"
+
+  responses:
+    InternalServerError:
+      description: Unexpected server-side error (e.g. database query failure).
+      content:
+        text/plain:
+          schema:
+            type: string
+            example: "Internal Server Error"
